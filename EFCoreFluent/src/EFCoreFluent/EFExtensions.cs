@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -11,78 +11,87 @@ using System.Threading.Tasks;
 namespace Snickler.EFCore
 {
     public static class EFExtensions
-    {/// <summary>
-     /// Creates an initial DbCommand object based on a stored procedure name
-     /// </summary>
-     /// <param name="context">target database context</param>
-     /// <param name="storedProcName">target procedure name</param>
-     /// <param name="prependDefaultSchema">Prepend the default schema name to <paramref name="storedProcName"/> if explicitly defined in <paramref name="context"/></param>
-     /// <returns></returns>
-        public static DbCommand LoadStoredProc(this DbContext context, string storedProcName, bool prependDefaultSchema = true)
-        {
-            var cmd = context.Database.GetDbConnection().CreateCommand();
-            if (prependDefaultSchema)
-            {
-                var schemaName = context.Model.Relational().DefaultSchema;
-                if (schemaName != null)
-                {
-                    storedProcName = $"{schemaName}.{storedProcName}";
-                }
+    {
+		/// <summary>
+		/// Creates an initial DbCommand object based on a stored procedure name
+		/// </summary>
+		/// <param name="context">target database context</param>
+		/// <param name="storedProcName">target procedure name</param>
+		/// <param name="prependDefaultSchema">Prepend the default schema name to <paramref name="storedProcName"/> if explicitly defined in <paramref name="context"/></param>
+		/// <param name="commandTimeout">Command timeout in seconds. Default is 30.</param>
+		/// <returns></returns>
+		public static DbCommand LoadStoredProc(this DbContext context, string storedProcName, bool prependDefaultSchema = true, short commandTimeout = 30)
+		{
+			context.Database.SetCommandTimeout(commandTimeout);
 
-            }
-            cmd.CommandText = storedProcName;
-            cmd.CommandType = System.Data.CommandType.StoredProcedure;
-            return cmd;
-        }
+			var cmd = context.Database.GetDbConnection().CreateCommand();
 
-        /// <summary>
-        /// Creates a DbParameter object and adds it to a DbCommand
-        /// </summary>
-        /// <param name="cmd"></param>
-        /// <param name="paramName"></param>
-        /// <param name="paramValue"></param>
-        /// <returns></returns>
-        public static DbCommand WithSqlParam(this DbCommand cmd, string paramName, object paramValue, Action<DbParameter> configureParam = null)
-        {
-            if (string.IsNullOrEmpty(cmd.CommandText) && cmd.CommandType != System.Data.CommandType.StoredProcedure)
-                throw new InvalidOperationException("Call LoadStoredProc before using this method");
+			cmd.CommandTimeout = commandTimeout;
 
-            var param = cmd.CreateParameter();
-            param.ParameterName = paramName;
-            param.Value = paramValue;
-            configureParam?.Invoke(param);
-            cmd.Parameters.Add(param);
-            return cmd;
-        }
+			if (prependDefaultSchema)
+			{
+				var schemaName = context.Model.Relational().DefaultSchema;
+				if (schemaName != null)
+				{
+					storedProcName = $"{schemaName}.{storedProcName}";
+				}
+			}
 
-        /// <summary>
-        /// Creates a DbParameter object and adds it to a DbCommand
-        /// </summary>
-        /// <param name="cmd"></param>
-        /// <param name="paramName"></param>
-        /// <param name="paramValue"></param>
-        /// <returns></returns>
-        public static DbCommand WithSqlParam(this DbCommand cmd, string paramName, Action<DbParameter> configureParam = null)
+			cmd.CommandText = storedProcName;
+			cmd.CommandType = System.Data.CommandType.StoredProcedure;
+
+			return cmd;
+		}
+
+		/// <summary>
+		/// Creates a DbParameter object and adds it to a DbCommand
+		/// </summary>
+		/// <param name="cmd"></param>
+		/// <param name="paramName"></param>
+		/// <param name="paramValue"></param>
+		/// <param name="configureParam"></param>
+		/// <returns></returns>
+		public static DbCommand WithSqlParam(this DbCommand cmd, string paramName, object paramValue, Action<DbParameter> configureParam = null)
         {
             if (string.IsNullOrEmpty(cmd.CommandText) && cmd.CommandType != System.Data.CommandType.StoredProcedure)
                 throw new InvalidOperationException("Call LoadStoredProc before using this method");
 
             var param = cmd.CreateParameter();
             param.ParameterName = paramName;
+            param.Value = (paramValue != null ? paramValue : DBNull.Value);
             configureParam?.Invoke(param);
             cmd.Parameters.Add(param);
             return cmd;
         }
 
-        /// <summary>
-        /// Creates a DbParameter object based on the SqlParameter and adds it to a DbCommand.
-        /// This enabled the ability to provide custom types for SQL-parameters.
-        /// </summary>
-        /// <param name="cmd"></param>
-        /// <param name="paramName"></param>
-        /// <param name="paramValue"></param>
-        /// <returns></returns>
-        public static DbCommand WithSqlParam(this DbCommand cmd, string paramName, SqlParameter parameter)
+		/// <summary>
+		/// Creates a DbParameter object and adds it to a DbCommand
+		/// </summary>
+		/// <param name="cmd"></param>
+		/// <param name="paramName"></param>
+		/// <param name="configureParam"></param>
+		/// <returns></returns>
+		public static DbCommand WithSqlParam(this DbCommand cmd, string paramName, Action<DbParameter> configureParam = null)
+        {
+            if (string.IsNullOrEmpty(cmd.CommandText) && cmd.CommandType != System.Data.CommandType.StoredProcedure)
+                throw new InvalidOperationException("Call LoadStoredProc before using this method");
+
+            var param = cmd.CreateParameter();
+            param.ParameterName = paramName;
+            configureParam?.Invoke(param);
+            cmd.Parameters.Add(param);
+            return cmd;
+        }
+
+		/// <summary>
+		/// Creates a DbParameter object based on the SqlParameter and adds it to a DbCommand.
+		/// This enabled the ability to provide custom types for SQL-parameters.
+		/// </summary>
+		/// <param name="cmd"></param>
+		/// <param name="paramName"></param>
+		/// <param name="parameter"></param>
+		/// <returns></returns>
+		public static DbCommand WithSqlParam(this DbCommand cmd, string paramName, SqlParameter parameter)
         {
             if (string.IsNullOrEmpty(cmd.CommandText) && cmd.CommandType != System.Data.CommandType.StoredProcedure)
                 throw new InvalidOperationException("Call LoadStoredProc before using this method");
@@ -137,7 +146,7 @@ namespace Snickler.EFCore
             /// </summary>
             /// <typeparam name="T"></typeparam>
             /// <param name="dr"></param>
-            /// <returns>IList<<typeparamref name="T"/>></returns>
+            /// <returns></returns>
             private IList<T> MapToList<T>(DbDataReader dr)
             {
                 var objList = new List<T>();
@@ -188,13 +197,14 @@ namespace Snickler.EFCore
             }
         }
 
-        /// <summary>
-        /// Executes a DbDataReader and returns a list of mapped column values to the properties of <typeparamref name="T"/>
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="command"></param>
-        /// <returns></returns>
-        public static void ExecuteStoredProc(this DbCommand command, Action<SprocResults> handleResults, System.Data.CommandBehavior commandBehaviour = System.Data.CommandBehavior.Default)
+		/// <summary>
+		/// Executes a DbDataReader and returns a list of mapped column values to the properties of <typeparamref name="T"/>
+		/// </summary>
+		/// <param name="command"></param>
+		/// <param name="handleResults"></param>
+		/// <param name="commandBehaviour"></param>
+		/// <param name="manageConnection"></param>
+		public static void ExecuteStoredProc(this DbCommand command, Action<SprocResults> handleResults, System.Data.CommandBehavior commandBehaviour = System.Data.CommandBehavior.Default, bool manageConnection = true)
         {
             if (handleResults == null)
             {
@@ -203,7 +213,7 @@ namespace Snickler.EFCore
 
             using (command)
             {
-                if (command.Connection.State == System.Data.ConnectionState.Closed)
+                if (manageConnection && command.Connection.State == System.Data.ConnectionState.Closed)
                     command.Connection.Open();
                 try
                 {
@@ -216,18 +226,24 @@ namespace Snickler.EFCore
                 }
                 finally
                 {
-                    command.Connection.Close();
+                    if(manageConnection)
+                    {
+                        command.Connection.Close();
+                    }
                 }
             }
         }
 
-        /// <summary>
-        /// Executes a DbDataReader asynchronously and returns a list of mapped column values to the properties of <typeparamref name="T"/>.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="command"></param>
-        /// <returns></returns>
-        public async static Task ExecuteStoredProcAsync(this DbCommand command, Action<SprocResults> handleResults, System.Data.CommandBehavior commandBehaviour = System.Data.CommandBehavior.Default, CancellationToken ct = default(CancellationToken))
+		/// <summary>
+		/// Executes a DbDataReader asynchronously and returns a list of mapped column values to the properties of <typeparamref name="T"/>.
+		/// </summary>
+		/// <param name="command"></param>
+		/// <param name="handleResults"></param>
+		/// <param name="commandBehaviour"></param>
+		/// <param name="ct"></param>
+		/// <param name="manageConnection"></param>
+		/// <returns></returns>
+		public async static Task ExecuteStoredProcAsync(this DbCommand command, Action<SprocResults> handleResults, System.Data.CommandBehavior commandBehaviour = System.Data.CommandBehavior.Default, CancellationToken ct = default(CancellationToken), bool manageConnection = true)
         {
             if (handleResults == null)
             {
@@ -236,7 +252,7 @@ namespace Snickler.EFCore
 
             using (command)
             {
-                if (command.Connection.State == System.Data.ConnectionState.Closed)
+                if (manageConnection && command.Connection.State == System.Data.ConnectionState.Closed)
                     await command.Connection.OpenAsync(ct).ConfigureAwait(false);
                 try
                 {
@@ -248,9 +264,82 @@ namespace Snickler.EFCore
                 }
                 finally
                 {
-                    command.Connection.Close();
+                    if (manageConnection)
+                    {
+                        command.Connection.Close();
+                    }
                 }
             }
         }
+        
+        /// <summary>
+		/// Executes a non-query.
+		/// </summary>
+		/// <param name="command"></param>
+		/// <param name="commandBehaviour"></param>
+		/// <param name="manageConnection"></param>
+		/// <returns></returns>
+		public static int ExecuteStoredNonQuery(this DbCommand command, System.Data.CommandBehavior commandBehaviour = System.Data.CommandBehavior.Default, bool manageConnection = true)
+		{
+			int numberOfRecordsAffected = -1;
+
+			using (command)
+			{
+				if (command.Connection.State == System.Data.ConnectionState.Closed)
+				{
+					command.Connection.Open();
+				}
+
+				try
+				{
+					numberOfRecordsAffected = command.ExecuteNonQuery();
+				}
+				finally
+				{
+					if (manageConnection)
+					{
+						command.Connection.Close();
+					}
+				}
+			}
+
+			return numberOfRecordsAffected;
+		}
+
+		/// <summary>
+		/// Executes a non-query asynchronously.
+		/// </summary>
+		/// <param name="command"></param>
+		/// <param name="commandBehaviour"></param>
+		/// <param name="ct"></param>
+		/// <param name="manageConnection"></param>
+		/// <returns></returns>
+		public async static Task<int> ExecuteStoredNonQueryAsync(this DbCommand command, System.Data.CommandBehavior commandBehaviour = System.Data.CommandBehavior.Default, CancellationToken ct = default(CancellationToken), bool manageConnection = true)
+		{
+			int numberOfRecordsAffected = -1;
+
+			using (command)
+			{
+				if (command.Connection.State == System.Data.ConnectionState.Closed)
+				{
+					await command.Connection.OpenAsync(ct).ConfigureAwait(false);
+				}
+
+				try
+				{
+					numberOfRecordsAffected = await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+				}
+				finally
+				{
+					if (manageConnection)
+					{
+						command.Connection.Close();
+					}
+				}
+			}
+
+			return numberOfRecordsAffected;
+		}
+        
     }
 }
